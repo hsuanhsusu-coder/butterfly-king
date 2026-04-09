@@ -72,32 +72,31 @@ function bgSchool(){for(let y=0;y<250;y+=4)px(0,y,W,4,`rgb(${100+y/4|0},${150+y/
 // ════════════════════════════════════
 //  4-LANE RHYTHM SYSTEM
 // ════════════════════════════════════
-const LN=4, LW=90, LGAP=8;
-const LX_START=(W-LN*LW-(LN-1)*LGAP)/2;// center the lanes
-function laneX(i){return LX_START+i*(LW+LGAP)}
-const LY=55,LH=440,HIT_Y2=LY+LH-45,HIT_H2=45;
+const LN=4;
+function getLW(){return G.mobile?90:90}
+function getLGAP(){return G.mobile?4:8}
+function getLX(i){const lw=getLW(),gap=getLGAP();const start=(W-LN*lw-(LN-1)*gap)/2;return start+i*(lw+gap)}
+function getLY(){return G.mobile?80:55}
+function getLH(){return G.mobile?550:440}
+function getHitY(){return getLY()+getLH()-50}
+const HIT_H2=50;
 const LANE_NAMES=['左手','核心','足部','右手'];
 const LANE_KEYS=['D','F','J','K'];
 const LANE_COL=['#2244aa','#226688','#886622','#aa2244'];
 const LANE_HI=['#4488ff','#44aacc','#ccaa44','#ff4488'];
-const PERF_D=20,GOOD_D=40;
+const PERF_D=26,GOOD_D=52;// wider for better feel
 
 function spawnBlock(){
-  // Difficulty determines which lanes get blocks
-  // Easy: mostly lane 1,2 (inner); Normal: all 4; Hard: doubles + dense
   let lane;
-  if(G.diff===0)lane=[1,2,1,2,0,3][Math.floor(Math.random()*6)];// mostly inner
+  if(G.diff===0)lane=[1,2,1,2,0,3][Math.floor(Math.random()*6)];
   else if(G.diff===1)lane=Math.floor(Math.random()*4);
-  else{// Hard: sometimes spawn 2 at once
-    lane=Math.floor(Math.random()*4);
-    if(Math.random()<.15){// double block
-      const l2=(lane+1+Math.floor(Math.random()*3))%4;
-      G.blocks.push({lane:l2,y:-30,h:30,spd:G.blockSpd,hit:0,miss:0,glow:0});G.totN++;
-    }
-  }
-  const isLong=Math.random()<.15+G.diff*.08;
-  G.blocks.push({lane,y:-(isLong?70+Math.random()*40:30),h:isLong?70+Math.random()*40:30,
-    spd:G.blockSpd,hit:0,miss:0,glow:0});
+  else{lane=Math.floor(Math.random()*4);
+    if(Math.random()<.15){const l2=(lane+1+Math.floor(Math.random()*3))%4;
+      G.blocks.push({lane:l2,y:-28,h:28,spd:G.blockSpd,hit:0,miss:0,glow:0});G.totN++;}}
+  // SHORT=28 (quick tap) vs LONG=130-190 (very obvious)
+  const isLong=Math.random()<.18+G.diff*.07;
+  const h=isLong?(130+Math.random()*60):28;
+  G.blocks.push({lane,y:-h,h,spd:G.blockSpd,hit:0,miss:0,glow:0});
 }
 
 function updateBlocks(dt){
@@ -107,8 +106,8 @@ function updateBlocks(dt){
     for(const b of G.blocks){
       if(b.lane!==ln||b.hit||b.miss)continue;
       const bBot=b.y+b.h;
-      const dist=Math.abs(bBot-HIT_Y2);
-      if(dist<bestD&&bBot>HIT_Y2-GOOD_D&&b.y<HIT_Y2+HIT_H2){bestD=dist;best=b}
+      const dist=Math.abs(bBot-getHitY());
+      if(dist<bestD&&bBot>getHitY()-GOOD_D&&b.y<getHitY()+HIT_H2){bestD=dist;best=b}
     }
     if(best){
       if(bestD<=PERF_D){best.hit=2;G.perf++;G.combo++;G.mxCombo=Math.max(G.mxCombo,G.combo);G.score+=300*(1+G.combo*.08);G.dist+=.7*G.spMul;sfx.perf();G.flType='P';G.flT=.3;G.flLane=ln;G.lf[ln]={t:.3,c:Au}}
@@ -118,7 +117,7 @@ function updateBlocks(dt){
   for(let i=G.blocks.length-1;i>=0;i--){
     const b=G.blocks[i];b.y+=b.spd*dt;
     if(b.hit){b.glow=(b.glow||.3)-.015;if(b.glow<=0)G.blocks.splice(i,1);continue}
-    if(b.y>HIT_Y2+HIT_H2+20&&!b.miss){b.miss=1;G.miss++;G.combo=0;G.stam=Math.max(0,G.stam-3);sfx.miss();G.flType='M';G.flT=.3;G.flLane=b.lane;G.lf[b.lane]={t:.3,c:Re};G.shakeT=.15}
+    if(b.y>getHitY()+HIT_H2+20&&!b.miss){b.miss=1;G.miss++;G.combo=0;G.stam=Math.max(0,G.stam-3);sfx.miss();G.flType='M';G.flT=.3;G.flLane=b.lane;G.lf[b.lane]={t:.3,c:Re};G.shakeT=.15}
     if(b.y>H+60)G.blocks.splice(i,1);
   }
   for(let ln=0;ln<LN;ln++){if(G.lf[ln])G.lf[ln].t-=dt;if(G.lf[ln]?.t<=0)G.lf[ln]=null}
@@ -126,35 +125,52 @@ function updateBlocks(dt){
 
 function drawLanes(){
   for(let ln=0;ln<LN;ln++){
-    const lx=laneX(ln);
-    px(lx,LY,LW,LH,'rgba(10,20,40,.88)');
-    px(lx,LY,2,LH,LANE_COL[ln]);px(lx+LW-2,LY,2,LH,LANE_COL[ln]);
+    const lx=getLX(ln);
+    px(lx,getLY(),getLW(),getLH(),'rgba(10,20,40,.88)');
+    px(lx,getLY(),2,getLH(),LANE_COL[ln]);px(lx+getLW()-2,getLY(),2,getLH(),LANE_COL[ln]);
     // Hit zone
     const hf=G.lf[ln];
-    px(lx,HIT_Y2,LW,HIT_H2,hf?hf.c:LANE_COL[ln]);
-    px(lx,HIT_Y2,LW,3,Wh);px(lx,HIT_Y2+HIT_H2-3,LW,3,Wh);
-    if(hf?.t>0){X.globalAlpha=hf.t*2;px(lx,HIT_Y2-15,LW,HIT_H2+30,hf.c);X.globalAlpha=1}
+    px(lx,getHitY(),getLW(),HIT_H2,hf?hf.c:LANE_COL[ln]);
+    px(lx,getHitY(),getLW(),3,Wh);px(lx,getHitY()+HIT_H2-3,getLW(),3,Wh);
+    if(hf?.t>0){X.globalAlpha=hf.t*2;px(lx,getHitY()-15,getLW(),HIT_H2+30,hf.c);X.globalAlpha=1}
     // Labels
-    T(LANE_NAMES[ln],lx+LW/2,LY+12,12,LANE_HI[ln],'center');
-    T(LANE_KEYS[ln],lx+LW/2,LY+LH+14,14,'#556','center');
+    T(LANE_NAMES[ln],lx+getLW()/2,getLY()+12,12,LANE_HI[ln],'center');
+    T(LANE_KEYS[ln],lx+getLW()/2,getLY()+getLH()+14,14,'#556','center');
     // Guide dots
-    for(let gy=LY+30;gy<HIT_Y2;gy+=35){X.globalAlpha=.06;px(lx+LW/2-1,gy,2,18,'#88aacc');X.globalAlpha=1}
+    for(let gy=getLY()+30;gy<getHitY();gy+=35){X.globalAlpha=.06;px(lx+getLW()/2-1,gy,2,18,'#88aacc');X.globalAlpha=1}
   }
   // Blocks
   for(const b of G.blocks){
-    const lx=laneX(b.lane);
-    if(b.hit){X.globalAlpha=(b.glow||0)*2;px(lx+4,b.y-3,LW-8,b.h+6,b.hit===2?Au:Gn);for(let j=0;j<3;j++)px(lx+8+Math.random()*(LW-16),b.y+Math.random()*b.h,4,4,Wh);X.globalAlpha=1}
-    else if(b.miss){X.globalAlpha=Math.max(0,1-(b.y-HIT_Y2)/80);px(lx+6,b.y,LW-12,b.h,'#441111');TB('✕',lx+LW/2,b.y+b.h/2,18,Re,Bk,2);X.globalAlpha=1}
-    else{const near=Math.abs(b.y+b.h-HIT_Y2)<50;
-      px(lx+5,b.y-1,LW-10,b.h+2,Bk);px(lx+7,b.y,LW-14,b.h,LANE_COL[b.lane]);px(lx+9,b.y+2,LW-18,b.h*.4,LANE_HI[b.lane]);
-      if(near){X.globalAlpha=.25+Math.sin(G.t*15)*.12;px(lx+7,b.y,LW-14,b.h,Wh);X.globalAlpha=1}}
+    const lx=getLX(b.lane);
+    if(b.hit){X.globalAlpha=(b.glow||0)*2;px(lx+4,b.y-3,getLW()-8,b.h+6,b.hit===2?Au:Gn);for(let j=0;j<3;j++)px(lx+8+Math.random()*(getLW()-16),b.y+Math.random()*b.h,4,4,Wh);X.globalAlpha=1}
+    else if(b.miss){X.globalAlpha=Math.max(0,1-(b.y-getHitY())/80);px(lx+6,b.y,getLW()-12,b.h,'#441111');TB('✕',lx+getLW()/2,b.y+b.h/2,18,Re,Bk,2);X.globalAlpha=1}
+    else{const near=Math.abs(b.y+b.h-getHitY())<50;
+      px(lx+5,b.y-1,getLW()-10,b.h+2,Bk);px(lx+7,b.y,getLW()-14,b.h,LANE_COL[b.lane]);px(lx+9,b.y+2,getLW()-18,b.h*.4,LANE_HI[b.lane]);
+      if(near){X.globalAlpha=.25+Math.sin(G.t*15)*.12;px(lx+7,b.y,getLW()-14,b.h,Wh);X.globalAlpha=1}}
   }
-  // Judgment flash
-  if(G.flT>0){X.globalAlpha=G.flT/.3;const fx=laneX(G.flLane||0)+LW/2;
-    if(G.flType==='P'){TB('PERFECT!',fx,HIT_Y2-25,22,Au,Bk);for(let i=0;i<4;i++){const a=i/4*6.28+G.t*10;px(fx+Math.cos(a)*25-2,HIT_Y2-25+Math.sin(a)*12-2,5,5,Au)}}
-    else if(G.flType==='G')TB('GOOD',fx,HIT_Y2-25,20,Gn,Bk);
-    else TB('MISS',fx+Math.sin(G.t*40)*3,HIT_Y2-25,20,Re,Bk);
-    X.globalAlpha=1}
+  // Judgment flash (HUGE, clear feedback!)
+  if(G.flT>0){
+    const fx=getLX(G.flLane||0)+getLW()/2;
+    // Full-width lane flash bar
+    X.globalAlpha=G.flT/.3*.6;
+    px(getLX(G.flLane||0),getHitY()-50,getLW(),100,G.flType==='P'?Au:G.flType==='G'?Gn:Re);
+    X.globalAlpha=G.flT/.3;
+    if(G.flType==='P'){
+      TB('PERFECT!',fx,getHitY()-35,28,Au,'#442200');
+      // Big explosion ring
+      ri(fx,getHitY(),20+30*(1-G.flT/.3),Au,3);
+      for(let i=0;i<6;i++){const a=i/6*6.28+G.t*10;px(fx+Math.cos(a)*(20+20*(1-G.flT/.3))-2,getHitY()+Math.sin(a)*15-2,5,5,Au)}
+    }else if(G.flType==='G'){
+      TB('GOOD!',fx,getHitY()-35,24,Gn,'#004400');
+      ri(fx,getHitY(),15+20*(1-G.flT/.3),Gn,2);
+    }else{
+      const sh=Math.sin(G.t*50)*4;
+      TB('MISS!',fx+sh,getHitY()-35,26,Re,'#440000');
+      // Red X growing
+      TB('✕',fx,getHitY(),30+10*(1-G.flT/.3),Re,Bk,3);
+    }
+    X.globalAlpha=1;
+  }
 }
 
 // ════════════════════════════════════
@@ -172,12 +188,12 @@ cdTm:3.5,cutPh:0,cutT:0,cutWait:0,
 motPh:0,motT:0,motWait:false,// motivational screen phases
 mnTy:0,mnT:30,mnSc:0,mnTg:12,mnItems:[],mnPX:400,mnOk:0,mrWait:0,mnEat:0,mnHurt:0,
 grade:'',fTime:0,attSc:100,rwTy:0,resT:0,willp:0,
-resPage:0,resReady:false},lastTS=0;
+resPage:0,resReady:false,mobile:false,cStory:-1,cPage:0},lastTS=0;
 
 // INTRO
 const IP=[{c:'s',a:0,t:'教練的話',m:'態度比成績更重要！'},{c:'s',a:.5,t:'自我要求',m:'累和痠痛是進步的路！'},{c:'p',a:.6,t:'配合指令',m:'不是看你心情！'},{c:'s',a:.8,t:'責任感',m:'用具搞丟怎麼做好事情？'},{c:'p',a:0,t:'期望',m:'游泳和做人同樣道理！'}];
 function dI(){px(0,0,W,H,'#0a0a18');const pg=IP[G.ip];if(pg.c==='s')drawS(160,280,9,pg.a);else drawP(160,280,9,pg.a);px(0,0,W,55,'rgba(0,0,0,.8)');px(0,52,W,3,Au);TB(pg.t,W/2,28,30,Au,Bk);px(310,80,460,200,Wh);px(310,80,460,4,pg.c==='s'?'#dd0000':'#ffbb22');X.fillStyle=Wh;X.beginPath();X.moveTo(310,170);X.lineTo(285,200);X.lineTo(310,210);X.fill();const cc=Math.min(pg.m.length,(G.t*12)|0);G.ir=cc>=pg.m.length;TW(pg.m.substring(0,cc),330,100,30,'#111',420);if(G.ir&&Math.sin(G.t*4)>0)T('👆點擊繼續',W/2,H-25,22,Au,'center')}
-function cI(){if(!G.ir){G.t=999;return}sfx.click();G.ip++;G.t=0;if(G.ip>=IP.length){G.st=1;G.t=0}}
+function cI(){if(!G.ir){G.t=999;return}sfx.click();G.ip++;G.t=0;if(G.ip>=IP.length){G.st=2;G.t=0}}
 // TITLE
 function dT(){for(let y=0;y<H;y++)px(0,y,W,1,`rgb(${5+(y/H)*12|0},${15+(y/H)*25|0},${35+(y/H)*45|0})`);TB('北小泳隊',W/2,42,36,GoH,'#003355');TB('金牌特訓',W/2,86,42,Au,'#332200');T('~四軌節奏泳訓版~',W/2,118,14,'#00ffaa','center');
   // Two faces
@@ -188,17 +204,25 @@ function dT(){for(let y=0;y<H;y++)px(0,y,W,1,`rgb(${5+(y/H)*12|0},${15+(y/H)*25|
   for(let i=0;i<6;i++){px(W/4+10-12*6+i*24,180-Math.sin(G.t*10+i)*12,8,14+Math.sin(G.t*8+i)*5,['#2244ff','#4488ff','#88ccff'][i%3]);
     px(W*3/4-10-12*6+i*24,180-Math.sin(G.t*10+i+3)*12,8,14+Math.sin(G.t*8+i+3)*5,['#ff2244','#ff4488','#ff88cc'][i%3])}
   drawS(W/2-60,485,2.5,0);drawP(W/2+60,485,2.5,0);
-  const dn=['🟢簡單','🟡普通','🔴困難'];for(let i=0;i<3;i++){const bx=140+i*180,by=H-55;const hov=Math.abs(G.mx-bx)<75&&Math.abs(G.my-by)<22;px(bx-75,by-22,150,44,hov?'#1a2a44':'rgba(8,16,32,.88)');px(bx-75,by-22,150,3,G.diff===i?Au:'#334466');T(dn[i],bx,by,18,G.diff===i?Au:'#aaa','center')}
-  if(Math.sin(G.t*3.5)>0)T('▶點擊開始◀',W/2,H-12,20,Wh,'center')}
-function cT(p){for(let i=0;i<3;i++){if(Math.abs(p.x-(140+i*180))<75&&Math.abs(p.y-(H-55))<22){G.diff=i;sfx.click();
-  // DIFFICULTY CALIBRATION
-  // Easy: 25m, slow blocks, sparse → most get A/B
-  // Normal: 50m, medium → need skill for S
-  // Hard: 50m, fast + doubles → SS requires mastery
+  const dn=['🟢簡單','🟡普通','🔴困難'];for(let i=0;i<3;i++){const bx=140+i*180,by=H-75;const hov=Math.abs(G.mx-bx)<75&&Math.abs(G.my-by)<22;px(bx-75,by-22,150,44,hov?'#1a2a44':'rgba(8,16,32,.88)');px(bx-75,by-22,150,3,G.diff===i?Au:'#334466');T(dn[i],bx,by,18,G.diff===i?Au:'#aaa','center')}
+  // Mode toggle (show what clicking WILL switch to)
+  const modeLabel=G.mobile?'🖥️電腦橫式':'📱手機直式';
+  px(10,H-42,145,32,'rgba(30,20,50,.8)');px(10,H-42,145,3,'#668');T(modeLabel,82,H-24,13,'#aac','center');
+  // Gallery button
+  px(W-150,H-42,140,32,'rgba(30,20,50,.8)');px(W-150,H-42,140,3,'#886');T('🎬動畫花絮',W-80,H-24,13,Au,'center');
+  if(Math.sin(G.t*3.5)>0)T('▶點擊畫面開始◀',W/2,H-6,16,Wh,'center')}
+function cT(p){
+  // Gallery button
+  if(p.x>W-150&&p.y>H-42){G.st=11;sfx.click();return}
+  // Mode toggle
+  if(p.x<155&&p.y>H-42){G.mobile=!G.mobile;sfx.click();
+    if(G.mobile){W=450;H=800}else{W=800;H=600}resize();return}
+  // Difficulty
+  for(let i=0;i<3;i++){if(Math.abs(p.x-(140+i*180))<75&&Math.abs(p.y-(H-75))<22){G.diff=i;sfx.click();
   G.tDist=[25,50,50][i];
-  G.blockInt=[1.3,.85,.55][i];// spawn interval
-  G.blockSpd=[140,180,230][i];// fall speed
-  return}}G.st=2;sfx.click()}
+  G.blockInt=[1.3,.85,.55][i];
+  G.blockSpd=[140,180,230][i];
+  return}}G.st=1;sfx.pow()}
 // CSEL
 function dCS(){bgPool();TB('選擇選手！',W/2,40,28,Wh,Bk);dF(W/4+10,280,6,0,'determined');dF(W*3/4-10,280,6,1,'happy');TB('男泳士',W/4+10,110,22,'#44aaff',Bk);TB('女泳士',W*3/4-10,110,22,'#ff66aa',Bk);if(Math.sin(G.t*4)>0)T('點擊選擇',W/2,H-30,22,Wh,'center')}
 function cCS(p){G.ch=p.x<W/2?0:1;G.st=3;G.eqPhase=0;G.eqT=0;G.eqWait=false;sfx.click()}
@@ -245,7 +269,7 @@ function uSw(dt){
     }
     return;
   }
-  if(G.dist>=G.tDist){G.st=9;G.fTime=G.gTime;G.resT=0;G.resPage=0;G.resReady=false;cGr();sfx.pow();return}
+  if(G.dist>=G.tDist){G.st=9;G.fTime=G.gTime;G.resT=0;G.cStory=-1;G.cPage=0;G.resReady=false;cGr();sfx.pow();return}
 }
 // ═══ 4 SWIMMING STYLES pixel animation (side decorations) ═══
 const STYLE_NAMES=['蝶式','自由式','蛙式','仰式'];
@@ -284,9 +308,9 @@ function drawSwimStyle(cx,cy,style,t,s){
 function dSWIM(){bgPool();
   if(G.shakeT>0){X.save();X.translate((Math.random()-.5)*8,(Math.random()-.5)*8)}
   // ═══ Swimming style animations on both sides ═══
-  const sideL=laneX(0)-50,sideR=laneX(3)+LW+15;
+  const sideL=getLX(0)-50,sideR=getLX(3)+getLW()+15;
   for(let i=0;i<4;i++){
-    const sy=LY+60+i*100;
+    const sy=getLY()+60+i*100;
     // Left side
     drawSwimStyle(sideL,sy,i,G.t+i*.5,2.5);
     T(STYLE_NAMES[i],sideL,sy+22,10,STYLE_COL[i],'center');
@@ -367,99 +391,57 @@ function cGr(){
   G.rwTy=Math.random()>.5?0:1;
 }
 
-// Each grade: 3 unique pages with different VISUAL SCENES
-function uRes(dt){G.resT+=dt;G.resReady=G.resT>2.5}
+// ════════════════════════════════════════════════════════════
+//  RESULT: Score + 4 Story Routes (each 3-page comic panels)
+// ════════════════════════════════════════════════════════════
+function uRes(dt){G.resT+=dt;G.resReady=G.resT>1.5}
+function drawWater(y,h,dark){for(let i=0;i<h;i+=3){const c=dark?`rgb(${8+i/3|0},${20+i/2|0},${45+i|0})`:`rgb(${20+i/2|0},${50+i|0},${100+i*1.5|0})`;px(0,y+i,W,3,c)}for(let i=0;i<12;i++){X.globalAlpha=.06;px((i*67+G.t*15)%W,y+10+i*h/12,30,2,'#88ddff');X.globalAlpha=1}}
+function drawSunset(hY){for(let y=0;y<hY;y++){const t=y/hY;px(0,y,W,1,`rgb(${80+t*100|0},${40+t*60|0},${120-t*80|0})`)}for(let y=hY;y<H;y++){const t=(y-hY)/(H-hY);px(0,y,W,1,`rgb(${60-t*40|0},${80-t*40|0},${30+t*20|0})`)}ci(W/2+100,hY-30,40,'#ff8844');ci(W/2+100,hY-30,30,'#ffaa66');X.globalAlpha=.15;ci(W/2+100,hY-30,80,'#ffcc88');X.globalAlpha=1}
+function drawTimer(cx,cy,s,time){px(cx-10*s,cy-4*s,20*s,8*s,Bk);px(cx-9.5*s,cy-3.5*s,19*s,7*s,'#220000');TB(time,cx,cy,5*s,'#ff2222',Bk,1)}
+function drawNarr(txt){px(0,0,W,40,'rgba(0,0,0,.85)');px(0,37,W,3,Au);const cc=Math.min(txt.length,(G.resT*10)|0);T(txt.substring(0,cc),W/2,20,16,'#ccddee','center')}
+function drawDlg(who,txt,y,ch){const isS=who==='沙士',isPn=who==='鳳梨';const bc=(!isS&&!isPn)?Go:isS?'#dd0000':'#ffbb22';const nc=(!isS&&!isPn)?'#226688':isS?'#cc3300':'#cc8800';if(isS)drawS(55,y+35,3.5,0);else if(isPn)drawP(55,y+35,3.5,0);else dF(55,y+35,3,ch,G.dlgExpr||'normal');bub(110,y,W-135,65,85,y+35,bc);T(who+'：',120,y+10,12,nc);TW(txt.substring(0,Math.min(txt.length,(G.resT*12)|0)),120,y+28,18,'#222',W-165)}
+function drawInner(txt,y){X.globalAlpha=.7+Math.sin(G.t*3)*.15;T(txt.substring(0,Math.min(txt.length,(G.resT*10)|0)),W/2,y,20,'#aaccee','center');X.globalAlpha=1}
 function dRes(){
-  const p=G.resPage;
-  // ═══ SS: Golden Legend ═══
-  if(G.grade==='SS'){
-    if(p===0){// Page 1: Golden aura celebration
-      bgPool();X.globalAlpha=.15+Math.sin(G.t*2)*.05;px(0,0,W,H,Au);X.globalAlpha=1;
-      for(let i=0;i<16;i++){const a=i/16*6.28+G.t*.3;X.strokeStyle='rgba(255,215,0,.12)';X.lineWidth=8;X.beginPath();X.moveTo(W/2,250);X.lineTo(W/2+Math.cos(a)*400,250+Math.sin(a)*300);X.stroke()}
-      X.globalAlpha=.3;ci(W/2,250,110,Au);X.globalAlpha=1;dF(W/2,240,9,G.ch,'godly');
-      TB('全中運傳說！',W/2,45,38,'#ff44ff',Bk);
-      for(let i=0;i<50;i++){const cc=['#f44','#4f4','#44f','#ff4','#f4f'][i%5];px((i*47+G.resT*80)%W,(i*67+G.resT*40)%H,5,5,cc)}
-      for(let i=0;i<12;i++){const jx=30+i*65,jy=450-Math.abs(Math.sin(G.t*6+i*1.3))*20;px(jx,jy,8,12,['#ff4','#4ff','#f4f'][i%3]);px(jx+1,jy-5,6,6,Sk)}
-      drawS(80,470,4,0);drawP(W-80,470,4,0);
-    }else if(p===1){// Page 2: Funny dialog
-      px(0,0,W,H,'#0a0a18');TB('📸 慶功時間！',W/2,35,28,Au,Bk);
-      dF(120,200,6,G.ch,'happy');bub(230,100,480,80,140,200,Go);TW('我覺得...奧運比賽在等我參加！',250,115,22,'#222',440);
-      drawS(120,370,5,0);bub(230,290,480,80,120,370,'#dd0000');TW('先別急。回來每天5點起床練完再說。',250,305,22,'#222',440);
-      drawP(120,500,5,0);bub(230,440,480,60,120,500,'#ffbb22');TW('哈哈！走！師大夜市慶功！雞排我請！',250,455,22,'#222',440);
-    }else{// Page 3: Food reward
-      px(0,0,W,H,'#0a0a18');TB('🎉 美食獎勵！',W/2,40,30,Au,Bk);
-      dF(W/2-200,300,5,G.ch,'happy');drawS(W/2+100,280,4,0);drawP(W/2+200,280,4,0);
-      if(G.rwTy===0)drawChicken(W/2,H/2+60,4);else drawBaozi(W/2,H/2+60,4);
-      for(let i=0;i<40;i++){const cc=['#f44','#4f4','#44f','#ff4'][i%4];px((i*47+G.resT*80)%W,(i*67+G.resT*40)%H,5,5,cc)}
-    }
-  }
-  // ═══ S: Podium Champion ═══
-  else if(G.grade==='S'){
-    if(p===0){bgSchool();px(W/2-80,340,160,30,Au);px(W/2-60,370,120,50,'#ccaa44');T('1',W/2,385,30,Wh,'center');
-      dF(W/2,270,8,G.ch,'proud');ci(W/2,340,14,Au);ci(W/2,340,10,'#ffee55');T('金',W/2,340,12,'#cc8800','center');
-      TB('市中運霸主！',W/2,50,36,Au,Bk);drawS(130,430,4,0);drawP(W-130,430,4,0);
-      if(G.fr%30<15){T('👏',170,410,18,Wh);T('👏',W-170,410,18,Wh)}
-      for(let i=0;i<30;i++)px((i*53+G.resT*60)%W,(i*71+G.resT*30)%H,4,4,['#f44','#4f4','#ff4'][i%3])}
-    else if(p===1){px(0,0,W,H,'#0a0a18');TB('📸 回家路上',W/2,35,28,Au,Bk);
-      dF(120,200,6,G.ch,'happy');bub(230,100,480,80,140,200,Go);TW('我還可以再游10趟！',250,120,24,'#222',440);
-      drawS(120,370,5,0);bub(230,290,480,80,120,370,'#dd0000');TW('好。那就再游10趟。不是開玩笑。',250,308,22,'#222',440);
-      dF(W-100,450,4,G.ch,'shock');T('...等等我只是說說！',W/2+80,480,18,'#888');}
-    else{px(0,0,W,H,'#0a0a18');TB('美食獎勵！',W/2,40,28,Au,Bk);if(G.rwTy===0)drawChicken(W/2,H/2,4);else drawBaozi(W/2,H/2,4);}
-  }
-  // ═══ A: Coach Demo ═══
-  else if(G.grade==='A'){
-    if(p===0){bgSchool();dF(W/2,270,8,G.ch,'proud');TB('北小校隊菁英！',W/2,55,32,Gn,Bk);
-      // Flex pose lines
-      px(W/2-80,260,15,55,Sk);px(W/2-85,245,22,22,Sk);px(W/2+63,260,15,55,Sk);px(W/2+63,245,22,22,Sk);
-      drawS(100,430,4,0);drawP(W-100,430,4,0);if(G.fr%24<12){T('👏',140,410,18,Wh);T('👏',W-140,410,18,Wh)}}
-    else if(p===1){px(0,0,W,H,'#0a0a18');TB('📸 教練示範時間',W/2,35,26,Gn,Bk);
-      drawS(120,180,6,.3);bub(250,80,460,85,120,180,'#dd0000');TW('來，教練示範標準蝶式。看好了。',270,95,22,'#222',420);
-      drawP(120,370,6,0);bub(250,280,460,80,120,370,'#ffbb22');TW('（脫外套）這就是正確的手部入水角度！',270,295,22,'#222',420);
-      dF(W-100,450,4,G.ch,'shock');bub(500,430,220,50,W-100,450,Go);T('哇！原來是這樣！',510,455,16,'#222');}
-    else{px(0,0,W,H,'#0a0a18');TB('美食獎勵！',W/2,40,28,Au,Bk);if(G.rwTy===0)drawChicken(W/2,H/2,4);else drawBaozi(W/2,H/2,4);}
-  }
-  // ═══ B: Need Sarsi ═══
-  else if(G.grade==='B'){
-    if(p===0){bgPool();dSw(W/2,300,G.t*3,G.ch,60,2.5);TB('有進步空間！',W/2,50,28,Go,Bk);
-      px(0,0,W,80,'#ccbbaa');drawS(180,55,3.5,.3);drawP(W-180,55,3.5,.3);dF(W/2,450,5,G.ch,'lactic')}
-    else{px(0,0,W,H,'#0a0a18');TB('📸 池邊對話',W/2,35,26,Go,Bk);
-      dF(120,200,6,G.ch,'lactic');bub(230,100,480,80,140,200,Go);TW('我可能要喝一點沙士才能繼續游...',250,118,22,'#222',440);
-      drawS(120,370,5,0);bub(230,290,480,80,120,370,'#dd0000');TW('沙士是獎勵不是補給品。去喝水。',250,308,22,'#222',440);
-      drawP(120,510,4,0);T('哈哈！態度不錯，至少沒放棄！',230,510,18,'#aa8833');}
-  }
-  // ═══ C: Lactic Acid ═══
-  else if(G.grade==='C'){
-    if(p===0){bgPool();dSw(W/2,300,G.t*2,G.ch,30,2.5);TB('要更努力！',W/2,50,28,'#aaa',Bk);
-      px(0,0,W,80,'#ccbbaa');drawS(180,55,3.5,.5);drawP(W-180,55,3.5,.5);dF(W/2,450,5,G.ch,'lactic')}
-    else{px(0,0,W,H,'#0a0a18');TB('📸 乳酸爆發',W/2,35,26,Or,Bk);
-      dF(120,190,6,G.ch,'lactic');bub(230,90,480,75,140,190,Go);TW('教練...我的手已經不是我的了...',250,105,22,'#222',440);
-      drawS(120,340,5,0);bub(230,265,480,65,120,340,'#dd0000');TW('那是乳酸。痠痛代表你有在努力。',250,282,22,'#222',440);
-      drawP(120,470,5,.5);bub(230,410,480,65,120,470,'#ffbb22');TW('痛才是進步！給我再來一趟！',250,428,22,'#222',440);
-      dF(W-100,530,3,G.ch,'shock');T('再一趟？！',W-160,530,18,Re);}
-  }
-  // ═══ D: Poolside Lecture ═══
-  else{
-    if(p===0){bgPool();px(0,0,W,130,'#ccbbaa');TB('繼續練習！',W/2,260,30,'#888',Bk);
-      dF(W/2,380,7,G.ch,'lactic');drawS(180,90,5,.7);drawP(W-180,90,5,.5);
-      bub(260,15,300,80,180,100,'#dd0000');TW('你在泡澡不是比賽。',280,30,20,'#222',260);
-      bub(W-430,15,300,80,W-180,100,'#ffbb22');TW('連用具都管不好！',W-410,30,20,'#222',260);
-      if(G.fr%20<12)T('💦',W/2+55,350,16,Wh)}
-    else{px(0,0,W,H,'#0a0a18');TB('📸 教練的心聲',W/2,35,26,Re,Bk);
-      drawS(120,200,6,.5);bub(230,100,480,90,120,200,'#dd0000');TW('游的好壞是一回事。做人處事的態度，你學到了嗎？',250,115,22,'#222',440);
-      drawP(120,400,6,.3);bub(230,320,480,80,120,400,'#ffbb22');TW('明天回來的時候，帶著你的決心一起來。',250,338,22,'#222',440);
-      dF(W-100,300,5,G.ch,'determined');bub(540,240,200,50,W-100,300,Go);T('...我不會再讓',550,255,16,'#222');T('教練失望了！',550,275,16,'#222');}
-  }
-
-  // Stats + page indicator
-  if(p===0){px(0,H-35,W,35,'rgba(0,0,0,.7)');T(`${G.fTime.toFixed(2)}s P:${G.perf} G:${G.good} M:${G.miss} Combo:${G.mxCombo} 態度:${G.attSc|0}`,W/2,H-16,12,Au,'center')}
-  T(`${p+1}/3`,16,H-12,14,'#556');
-  const maxP=(G.grade==='B'||G.grade==='C'||G.grade==='D')?2:3;
-  if(G.resReady&&Math.sin(G.t*3.5)>0)T(p<maxP-1?'👆下一頁':'👆重新挑戰',W/2,H-12,18,Au,'center');
-}
-function cRes(p2){if(!G.resReady)return;
-  const maxP=(G.grade==='B'||G.grade==='C'||G.grade==='D')?2:3;
-  if(G.resPage<maxP-1){G.resPage++;G.resT=0;G.resReady=false;sfx.click()}
-  else{G.st=1;G.stam=100;G.combo=0;G.mxCombo=0;G.score=0;G.perf=0;G.good=0;G.miss=0;G.totN=0;G.dist=0;G.gTime=0;G.blocks=[];G.splashes=[];G.cAnger=[0,0];G.spMul=1;G.willp=0;G.attSc=100;G.eqBoost=0;G.eqBlur=0;G.eqStamDrain=1;sfx.click()}}
+  if(G.cStory<0){// ═══ OVERVIEW ═══
+    px(0,0,W,H,'#0a0a20');const gc={SS:'#ff44ff',S:Au,A:Gn,B:Go,C:Or,D:Re}[G.grade]||Wh;
+    TB(G.grade,W/2,65,60,gc,Bk);const stars={SS:6,S:5,A:4,B:3,C:2,D:1}[G.grade]||1;
+    for(let i=0;i<stars;i++)T('★',W/2-stars*12+i*24,110,18,Au);
+    px(W/2-250,130,500,40,'rgba(20,30,50,.9)');px(W/2-250,130,500,3,gc);
+    T(`${G.fTime.toFixed(2)}秒 P:${G.perf} G:${G.good} M:${G.miss} 連擊:${G.mxCombo}`,W/2,150,13,Au,'center');
+    TB('📖 選擇故事路線',W/2,195,18,Wh,Bk);
+    const routes=[{n:'傳說誕生',s:'SS級・超越極限',c:'#ff44ff',i:'🏆'},{n:'意志傳承',s:'S/A級・紀律成長',c:Au,i:'🥇'},{n:'不屈挑戰',s:'B/C級・永不放棄',c:Go,i:'💪'},{n:'責任重量',s:'D級・搞笑反省',c:Or,i:'🩲'}];
+    const tw=170,tg=10,tox=(W-4*tw-3*tg)/2;
+    for(let i=0;i<4;i++){const tx=tox+i*(tw+tg),ty=220,hov=G.mx>tx&&G.mx<tx+tw&&G.my>ty&&G.my<ty+140;
+      px(tx,ty,tw,140,hov?'#1a2840':'#101828');px(tx,ty,tw,4,routes[i].c);px(tx,ty+137,tw,3,routes[i].c);
+      T(routes[i].i,tx+tw/2,ty+35,30,Wh,'center');TB(routes[i].n,tx+tw/2,ty+75,16,routes[i].c,Bk);T(routes[i].s,tx+tw/2,ty+100,10,'#778','center');T('📄3頁',tx+tw/2,ty+122,11,'#556','center')}
+    drawS(W/2-80,H-60,3,0);drawP(W/2+80,H-60,3,0);
+    px(W-130,H-40,120,32,'rgba(30,20,50,.8)');px(W-130,H-40,120,3,'#886');T('🎬花絮',W-70,H-22,13,Au,'center');
+    px(10,H-40,120,32,'rgba(30,20,50,.8)');px(10,H-40,120,3,'#668');T('🏠首頁',70,H-22,13,'#aac','center');return}
+  const S=G.cStory,P=G.cPage;
+  // ═══ STORY 0: 傳說誕生 ═══
+  if(S===0){if(P===0){drawWater(0,H,true);drawTimer(W/2,100,5,G.fTime?.toFixed(2)||'28.88');px(W/2-20,H/2-10,45,25,SkO);px(W/2-18,H/2-8,42,22,Sk);px(W/2-15,H/2-5,38,18,SkL);px(W/2+25,0,8,H,'#aabbcc');px(W/2+28,0,5,H,'#ccddee');for(let i=0;i<15;i++){const a=i/15*6.28+.5,r=40+Math.sin(G.t*3+i)*15;px(W/2+20+Math.cos(a)*r,H/2+Math.sin(a)*r*0.6,5,5,i%2?Au:Wh)}for(let i=0;i<8;i++){X.strokeStyle='rgba(255,255,255,.08)';X.lineWidth=4;X.beginPath();X.moveTo(W/2,H/2);X.lineTo(W/2+Math.cos(i/8*6.28)*400,H/2+Math.sin(i/8*6.28)*300);X.stroke()}drawNarr('那一刻，泳池的空氣彷彿凝固了...');drawDlg('選手','呼...呼...我做到了嗎？',H-100,G.ch)}
+    else if(P===1){px(0,0,W,H,'#0a0a18');const sh2=Math.sin(G.t*20)*3*(G.resT<1?1:0);X.save();X.translate(sh2,sh2*.5);for(let i=0;i<20;i++){X.strokeStyle=`rgba(255,200,0,${.06+Math.sin(G.t*5+i)*.03})`;X.lineWidth=5;X.beginPath();X.moveTo(W/2,H/2);X.lineTo(W/2+Math.cos(i/20*6.28)*500,H/2+Math.sin(i/20*6.28)*400);X.stroke()}drawS(W/2-120,250,7,.8);px(W/2-130,350,12,12,'#888');drawP(W/2+120,250,7,.8);X.restore();drawNarr('教練們的反應...');drawDlg('沙士','這頻率...完美得不像話。',H-160,G.ch);drawDlg('鳳梨','天啊！你竟然真的游進了那個領域！',H-85,G.ch)}
+    else{drawSunset(250);px(60,220,200,30,'#2a2233');px(80,200,40,20,'#2a2233');T('北小',130,235,12,'#443355','center');dF(W/2,340,7,G.ch,'godly');for(let i=0;i<16;i++){const a=i/16*6.28+G.t*.8,r=80+Math.sin(G.t*2+i)*20;px(W/2+Math.cos(a)*r,340+Math.sin(a)*r*.5-20,4,8+Math.sin(G.t*4+i)*3,['#ffdd00','#ff8800','#ff4400','#ffaa44'][i%4])}drawS(W/2-180,380,4,0);drawP(W/2+180,380,4,0);px(W/2-190,355,15,25,Wh);drawNarr('北小泳神的傳說，從今天正式開始。');drawDlg('鳳梨','走！師大夜市大雞排，教練請客！',H-80,G.ch)}}
+  // ═══ STORY 1: 意志傳承 ═══
+  else if(S===1){if(P===0){drawWater(200,H-200,false);px(0,200,W,5,'#ffcc44');dF(W/2,280,7,G.ch,'lactic');if(G.fr%6<3){px(W/2-50,300,4,8,'#ffaaaa');px(W/2+46,300,4,8,'#ffaaaa')}for(let i=0;i<4;i++)px(W/2-30+i*20,250+Math.sin(G.t*5+i)*8,2,4,'#44aaff');drawNarr('痠痛是進步的必經之路，他沒有逃避。');G.dlgExpr='lactic';drawDlg('選手','最後10公尺...差點就要放棄了...',H-80,G.ch)}
+    else if(P===1){px(0,0,W,H,'#0a0a18');drawS(100,200,6,.3);px(60,260,30,40,'#eee');for(let i=0;i<5;i++)px(68,270+i*5,14,2,'#333');drawP(W-100,200,6,0);drawNarr('教練評語時間');drawDlg('沙士','動作很到位，這就是自我要求的成果。',H-160,G.ch);drawDlg('鳳梨','撐住就是你的！下次，要看到更強的鬥志！',H-85,G.ch)}
+    else{drawSunset(200);px(W/2-100,170,200,140,'#ddccaa');px(W/2-80,200,160,110,'#887744');T('臺北市北小',W/2,240,14,'#333','center');px(100,120,4,80,'#554');ci(102,115,4,'#ffdd88');X.globalAlpha=.15;ci(102,115,20,'#ffdd88');X.globalAlpha=1;px(W-100,120,4,80,'#554');ci(W-98,115,4,'#ffdd88');for(let i=0;i<5;i++){const mx=W/2-60+i*30,my=350;px(mx-4,my-8,8,6,[SB,SG,SB,SG,SB][i]);px(mx-3,my-14,6,7,Sk);px(mx-3,my-16,6,4,[SB,SG,SB,SG,SB][i])}dF(W/2,350,3,G.ch,'happy');drawNarr('獎牌會生鏽，但刻在骨子裡的紀律不會。');G.dlgExpr='determined';drawDlg('選手','明天早訓，我會更早到。',H-80,G.ch)}}
+  // ═══ STORY 2: 不屈挑戰 ═══
+  else if(S===2){if(P===0){for(let y=0;y<H;y++){const t=y/H;px(0,y,W,1,`rgb(${5+t*8|0},${15+t*20|0},${40+t*50|0})`)}X.globalAlpha=.06;for(let i=0;i<5;i++){X.fillStyle='#aaddff';X.beginPath();X.moveTo(W/2-60+i*30,0);X.lineTo(W/2-80+i*30,H);X.lineTo(W/2-40+i*30,H);X.lineTo(W/2-30+i*30,0);X.fill()}X.globalAlpha=1;dF(W/2,H/2+30,6,G.ch,'lactic');for(let i=0;i<8;i++){const bx2=W/2-20+i*8,by2=H/2-40-Math.sin(G.t*2+i)*30-(G.resT*20+i*15)%200;X.globalAlpha=.3;ri(bx2,by2,2+i*.3,'#88ccff',1);X.globalAlpha=1}X.globalAlpha=.1;px(0,0,W,H,'#2244aa');X.globalAlpha=1;drawNarr('沉重的雙腳，像是被鐵鍊鎖住...');drawInner('這就是我的極限了嗎？',H-60)}
+    else if(P===1){drawWater(H/2,H/2,false);px(0,H/2-3,W,6,'rgba(100,200,255,.15)');drawP(W/2,200,8,1);X.globalAlpha=.25;X.save();X.translate(0,H);X.scale(1,-1);drawP(W/2,H-200+Math.sin(G.t*3)*5,6,.5);X.restore();X.globalAlpha=1;drawNarr('岸邊的怒吼打破了寧靜...');drawDlg('鳳梨','游起來！找出問題去修正！你做得到！',H-160,G.ch);drawDlg('沙士','調整呼吸，重新找回核心的節奏。',H-85,G.ch)}
+    else{bgPool();px(0,280,W,8,'#ccccaa');px(0,288,W,20,'#aaa99');px(W/2-20,260,40,30,Sk);px(W/2-25,275,8,12,Sk);px(W/2+17,275,8,12,Sk);dF(W/2,230,5,G.ch,'determined');for(let i=0;i<4;i++){px(W/2-15+i*10,215-Math.sin(G.t*8+i)*4,3,6+Math.sin(G.t*6+i)*2,['#ff4400','#ffaa00'][i%2])}drawNarr('失敗不可怕，可怕的是不敢重新站上跳台。');G.dlgExpr='determined';drawDlg('選手','教練，對不起...請再讓我游一趟！',H-80,G.ch)}}
+  // ═══ STORY 3: 責任重量 ═══
+  else{if(P===0){bgPool();px(W/2-70,200,140,12,'#ccccaa');px(W/2-50,212,100,40,'#999');dF(W/2,160,6,G.ch,'lactic');px(W/2-15,250,30,18,Wh);px(W/2-12,253,24,12,'#ffddee');ci(W/2-5,258,3,'#ff88aa');ci(W/2+5,257,2.5,'#ff88aa');X.globalAlpha=.3;px(W/2-30,155,60,20,'#ff5555');X.globalAlpha=1;for(let i=0;i<3;i++)T('...',100+i*250,350,20,'#445');drawNarr('某些錯誤，是熱血也救不了的...');G.dlgExpr='lactic';drawDlg('選手','我...我以為這是泳褲...',H-80,G.ch)}
+    else if(P===1){px(0,0,W,H,'#0a0a18');drawP(W/2-130,250,8,1);for(let i=0;i<10;i++){const fx2=W/2-130-20+i*5,ft2=Math.sin(G.t*15+i*2);px(fx2,180-ft2*10-Math.abs(Math.sin(G.t*8+i))*8,4,12+ft2*5,['#ff2200','#ff6600','#ffaa00','#ffdd00'][i%4])}drawS(W/2+130,250,8,0);X.strokeStyle=Wh;X.lineWidth=2;X.beginPath();X.moveTo(W/2+110,235);X.lineTo(W/2+125,250);X.moveTo(W/2+115,232);X.lineTo(W/2+108,248);X.stroke();if(G.fr%60<4){X.globalAlpha=.3;px(0,0,W,H,Wh);X.globalAlpha=1}drawNarr('教練們的崩潰瞬間...');drawDlg('鳳梨','我的天！記得穿對泳褲！把事情做好！',H-160,G.ch);drawDlg('沙士','別再睡了～快起床。加油。',H-85,G.ch)}
+    else{drawSunset(180);drawWater(280,H-280,true);for(let i=0;i<5;i++){X.strokeStyle='rgba(100,180,255,.1)';X.lineWidth=1;X.beginPath();X.moveTo(150+i*120,280);X.lineTo(150+i*120,H);X.stroke()}dF(W/2-80,250,5,G.ch,'normal');px(W/2-55,235,30,6,'#667788');ci(W/2-35,238,5,'#88bbdd');ci(W/2-35,238,3,Wh);drawS(W-120,260,2.5,0);drawP(W-80,260,2.5,0);drawNarr('特訓的第一課：責任感。');G.dlgExpr='determined';drawDlg('選手','我會負責把同學盯緊的～教練...',H-80,G.ch)}}
+  T(`第${P+1}頁/3`,W/2,H-15,14,'#556','center');
+  if(G.resReady&&Math.sin(G.t*4)>0)T(P<2?'👆點擊下一頁':'👆完成',W/2,H-35,16,Au,'center')}
+function cRes(p2){
+  if(G.cStory<0){if(p2.x>W-130&&p2.y>H-40){G.st=11;sfx.click();return}if(p2.x<130&&p2.y>H-40){G.st=0;sfx.click();return}
+    const tw=170,tg=10,tox=(W-4*tw-3*tg)/2;for(let i=0;i<4;i++){const tx=tox+i*(tw+tg);if(p2.x>tx&&p2.x<tx+tw&&p2.y>220&&p2.y<360){G.cStory=i;G.cPage=0;G.resT=0;G.resReady=false;sfx.pow();return}}return}
+  if(!G.resReady)return;
+  if(G.cPage<2){G.cPage++;G.resT=0;G.resReady=false;sfx.click()}
+  else{G.cStory=-1;G.cPage=0;G.resT=0;sfx.click()}}
 
 // ═══ STATE 10: MOTIVATIONAL BLACK SCREEN (2nd stamina depletion) ═══
 function uMot(dt){G.motT+=dt;
@@ -549,10 +531,37 @@ function cMot(p){
   G.blocks=[];G.blockT=.5;
 }
 
-// LOOP
-const upd=[null,null,null,uEq,uCD,uSw,uCu,uMn,uMR,uRes,uMot];
-const drw=[dI,dT,dCS,dEq,dCD,dSWIM,dCu,dMn,dMR,dRes,dMot];
-const clk=[cI,cT,cCS,cEq,null,cSw,cCu,cMn,cMR,cRes,cMot];
+// ═══ STATE 11: GALLERY (animation viewer) ═══
+const galN=['✨完美裝備','🔭望遠鏡','🩲大災難','SS全中運','S霸主','A菁英','B進步','C努力','D練習','🍗大雞排','🥟生煎包','⚡意志力爆發'];
+let galSel=-1;
+function dGal(){
+  if(galSel>=0){px(0,0,W,H,'#0a0a18');const i=galSel;
+    if(i<3)dF(W/2,280,10,G.ch,['happy','shock','lactic'][i]);
+    else if(i<9){const g=['SS','S','A','B','C','D'][i-3];const exprs={SS:'godly',S:'proud',A:'determined',B:'normal',C:'lactic',D:'lactic'};dF(W/2,250,8,G.ch,exprs[g]);drawS(120,430,4,0);drawP(W-120,430,4,0)}
+    else if(i===9)drawChicken(W/2,H/2,4);else if(i===10)drawBaozi(W/2,H/2,4);
+    else{dF(W/2,280,8,G.ch,'determined');TB('⚡突破自我！',W/2,100,30,Au,Bk);drawS(120,480,4,0);drawP(W-120,480,4,0)}
+    TB(galN[i],W/2,40,26,Au,Bk);
+    px(10,10,110,40,'rgba(0,0,0,.8)');px(10,10,110,3,Au);T('← 返回',25,32,18,Au);
+    return;}
+  px(0,0,W,H,'#0a0a20');TB('🎬 動畫花絮',W/2,40,30,Au,Bk);T('點擊觀看所有事件和結局動畫',W/2,72,14,'#778','center');
+  const cols=G.mobile?3:4,cw=G.mobile?130:175,ch2=55,ox=(W-cols*(cw+8))/2,oy=95;
+  for(let i=0;i<galN.length;i++){const col=i%cols,row=Math.floor(i/cols);const bx=ox+col*(cw+8),by=oy+row*(ch2+8);
+    const hov=G.mx>bx&&G.mx<bx+cw&&G.my>by&&G.my<by+ch2;
+    px(bx,by,cw,ch2,hov?'#334455':'#1a2233');px(bx,by,cw,3,Au);T(galN[i],bx+8,by+ch2/2,14,Wh)}
+  px(10,H-50,130,40,'rgba(0,0,0,.7)');px(10,H-50,130,3,Au);T('← 回標題',25,H-28,18,Au);
+}
+function cGal(p){
+  if(galSel>=0){if(p.x<120&&p.y<50){galSel=-1;sfx.click()}return}
+  const cols=G.mobile?3:4,cw=G.mobile?130:175,ch2=55,ox=(W-cols*(cw+8))/2,oy=95;
+  for(let i=0;i<galN.length;i++){const col=i%cols,row=Math.floor(i/cols);const bx=ox+col*(cw+8),by=oy+row*(ch2+8);
+    if(p.x>bx&&p.x<bx+cw&&p.y>by&&p.y<by+ch2){galSel=i;G.t=0;sfx.click();return}}
+  if(p.x<140&&p.y>H-50){G.st=0;sfx.click()}
+}
+
+// LOOP: 0=TITLE 1=INTRO 2=CSEL 3=EQUIP 4=CD 5=SWIM 6=CUTIN 7=MINI 8=MRES 9=RES 10=MOT 11=GAL
+const upd=[null,null,null,uEq,uCD,uSw,uCu,uMn,uMR,uRes,uMot,null];
+const drw=[dT,dI,dCS,dEq,dCD,dSWIM,dCu,dMn,dMR,dRes,dMot,dGal];
+const clk=[cT,cI,cCS,cEq,null,cSw,cCu,cMn,cMR,cRes,cMot,cGal];
 function loop(ts){const dt=Math.min(.05,(ts-lastTS)/1000);lastTS=ts;G.dt=dt;G.t+=dt;G.fr++;
   while(clicks.length){const p=clicks.shift();clk[G.st]?.(p)}
   upd[G.st]?.(dt);X.clearRect(0,0,W,H);drw[G.st]?.();
